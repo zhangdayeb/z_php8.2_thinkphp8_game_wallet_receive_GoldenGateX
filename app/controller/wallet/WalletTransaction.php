@@ -142,6 +142,12 @@ class WalletTransaction extends BaseController
                     'updated_at' => date('Y-m-d H:i:s')
                 ];
 
+                // 记录SQL日志
+                Log::debug('插入交易表SQL', [
+                    'table' => 'api_game_transactions',
+                    'data' => $transactionData
+                ]);
+
                 $transactionId = Db::name('api_game_transactions')->insertGetId($transactionData);
 
                 if (!$transactionId) {
@@ -150,14 +156,15 @@ class WalletTransaction extends BaseController
                 }
 
                 // 12. 记录到资金流水表
+                // 修复：确保所有金额字段都是非负数，operate_type使用合理值
                 $moneyLogData = [
                     'member_id' => $user['id'],
-                    'money' => abs($amount),
-                    'money_before' => $balanceBefore,
-                    'money_after' => $balanceAfter,
+                    'money' => abs($amount),  // 金额取绝对值
+                    'money_before' => max(0, $balanceBefore),  // 如果余额是负数，记为0
+                    'money_after' => max(0, $balanceAfter),    // 如果余额是负数，记为0
                     'money_type' => 'money',
-                    'number_type' => $amount < 0 ? -1 : 1,
-                    'operate_type' => 501,  // 游戏类型
+                    'number_type' => $amount < 0 ? -1 : 1,  // 用这个字段标识正负
+                    'operate_type' => $amount < 0 ? 10 : 11,  // 10=支出(下注) 11=收入(赢钱)
                     'admin_id' => 0,
                     'model_name' => 'GameTransaction',
                     'model_id' => $transactionId,
@@ -167,16 +174,26 @@ class WalletTransaction extends BaseController
                         'transaction_code' => $transactionCode,
                         'vendor_code' => $vendorCode,
                         'round_id' => $roundId,
-                        'history_id' => $historyId
+                        'history_id' => $historyId,
+                        'real_amount' => $amount,  // 保存真实金额（带正负）
+                        'real_balance_before' => $balanceBefore,  // 保存真实余额（可能为负）
+                        'real_balance_after' => $balanceAfter     // 保存真实余额（可能为负）
                     ]),
                     'created_at' => date('Y-m-d H:i:s'),
                     'updated_at' => date('Y-m-d H:i:s'),
                     'fanyong_flag' => 0
                 ];
 
+                // 记录SQL日志
+                Log::debug('插入资金流水表SQL', [
+                    'table' => 'game_user_money_logs',
+                    'data' => $moneyLogData
+                ]);
+
                 $moneyLogId = Db::name('game_user_money_logs')->insertGetId($moneyLogData);
 
                 if (!$moneyLogId) {
+                    Log::error('资金流水表插入失败');
                     Db::rollback();
                     return $this->error(500, 'UNKNOWN_SERVER_ERROR');
                 }
@@ -206,7 +223,8 @@ class WalletTransaction extends BaseController
             Log::error('交易异常', [
                 'message' => $e->getMessage(),
                 'file' => $e->getFile(),
-                'line' => $e->getLine()
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
             ]);
             return $this->error(500, 'UNKNOWN_SERVER_ERROR');
         }
