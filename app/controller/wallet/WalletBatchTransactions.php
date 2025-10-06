@@ -5,11 +5,10 @@ use app\BaseController;
 use think\facade\Db;
 use think\facade\Log;
 
-class WalletBalance extends BaseController
+class WalletBatchTransactions extends BaseController
 {
 
-    public function get_balance()
+    public function set_bet_credit()
     {
-
     }
 }
