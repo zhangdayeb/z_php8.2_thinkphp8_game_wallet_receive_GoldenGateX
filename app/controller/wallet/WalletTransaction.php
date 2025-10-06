@@ -11,7 +11,7 @@ class WalletTransaction extends BaseController
      * 处理游戏交易
      * POST /api/transaction
      */
-    public function set_bet()
+    public function get_transaction()
     {
         try {
             // 记录请求

@@ -11,7 +11,7 @@ class WalletBatchTransactions extends BaseController
      * 批量交易处理
      * POST /api/batch-transactions
      */
-    public function set_bet_credit()
+    public function get_batch_transactions()
     {
         try {
             // 记录请求
